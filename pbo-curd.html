@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi CRUD PBO - LocalStorage</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 40px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .page { display: none; }
+        .page.active { display: block; }
+        nav { display: flex; gap: 10px; margin-bottom: 20px; background: #1f2937; padding: 10px; border-radius: 6px; }
+        nav button { background: none; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
+        nav button:hover { background: #374151; }
+        .btn { background: #3b82f6; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; }
+        .btn.danger { background: #ef4444; }
+        .btn.warning { background: #f59e0b; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
+        th { background-color: #f9fafb; }
+        .profile-card { border: 1px solid #e5e7eb; padding: 20px; border-radius: 8px; text-align: center; background: #f8fafc; }
+        .alert { padding: 10px; background: #dcfce3; color: #166534; margin-bottom: 15px; border-radius: 4px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- NAVIGASI -->
+    <nav id="navbar" style="display: none;">
+        <button onclick="App.showPage('crud-page')">Data User (CRUD)</button>
+        <button onclick="App.showPage('profile-page')">Profil Saya</button>
+        <button onclick="App.logout()" style="margin-left: auto; background: #ef4444;">Logout</button>
+    </nav>
+
+    <div id="alert-box" class="alert"></div>
+
+    <!-- HALAMAN 1: LOGIN -->
+    <div id="login-page" class="page active">
+        <h2>Login Sistem</h2>
+        <p>Login default (Admin): username: <b>admin</b> | password: <b>admin123</b></p>
+        <form onsubmit="App.login(event)">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="login-username" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" required>
+            </div>
+            <button type="submit" class="btn">Login</button>
+        </form>
+    </div>
+
+    <!-- HALAMAN 2: DAFTAR USER (CRUD) -->
+    <div id="crud-page" class="page">
+        <h2>Manajemen User</h2>
+        
+        <form onsubmit="App.saveUser(event)" style="background: #f9fafb; padding: 15px; border-radius: 6px;">
+            <input type="hidden" id="user-id">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="user-username" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="text" id="user-password" required>
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select id="user-role">
+                    <option value="Admin">Admin</option>
+                    <option value="Member">Member</option>
+                </select>
+            </div>
+            <button type="submit" class="btn" id="btn-save">Simpan Data</button>
+            <button type="button" class="btn warning" onclick="App.resetForm()" style="display:none;" id="btn-cancel">Batal</button>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="user-table-body">
+                <!-- Data render via JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- HALAMAN 3: PROFILE -->
+    <div id="profile-page" class="page">
+        <h2>Profil Pengguna</h2>
+        <div class="profile-card" id="profile-content">
+            <!-- Data render via JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. KELAS DASAR (BASE CLASS)
+    // ==========================================
+    class AkunPengguna {
+        constructor(id, username, password, role) {
+            this.id = id;
+            this.username = username;
+            this.password = password;
+            this.role = role;
+        }
+
+        // Method yang akan di-override oleh kelas turunan (Polimorfisme)
+        tampilkanSapaan() {
+            return `Halo, ${this.username}! Selamat datang di sistem.`;
+        }
+
+        // Method encapsulation sederhana
+        getDetailInfo() {
+            return `ID: ${this.id} | Username: ${this.username} | Role: ${this.role}`;
+        }
+    }
+
+    // ==========================================
+    // 2. PEWARISAN (INHERITANCE) & POLIMORFISME
+    // ==========================================
+    
+    // Turunan 1: Admin
+    class Admin extends AkunPengguna {
+        constructor(id, username, password) {
+            super(id, username, password, 'Admin'); // Memanggil constructor kelas induk
+        }
+
+        // POLIMORFISME: Mengubah perilaku method dari kelas induk
+        tampilkanSapaan() {
+            return `<h3 style="color: #b91c1c;">👑 Selamat Datang, Administrator ${this.username}!</h3>
+                    <p>Anda memiliki akses penuh untuk melakukan CRUD pada sistem ini.</p>`;
+        }
+    }
+
+    // Turunan 2: Member biasa
+    class Member extends AkunPengguna {
+        constructor(id, username, password) {
+            super(id, username, password, 'Member');
+        }
+
+        // POLIMORFISME: Mengubah perilaku method dari kelas induk
+        tampilkanSapaan() {
+            return `<h3 style="color: #1d4ed8;">👤 Halo, ${this.username}</h3>
+                    <p>Selamat datang di area member. Anda hanya dapat melihat profil Anda sendiri.</p>`;
+        }
+    }
+
+    // Factory Class untuk instansiasi objek dari LocalStorage
+    class UserFactory {
+        static buatObjek(data) {
+            if (data.role === 'Admin') return new Admin(data.id, data.username, data.password);
+            return new Member(data.id, data.username, data.password);
+        }
+    }
+
+    // ==========================================
+    // 3. LOGIKA APLIKASI (CRUD & UI CONTROLLER)
+    // ==========================================
+    const App = {
+        activeUser: null,
+
+        init() {
+            // Seed data awal jika localstorage kosong
+            if (!localStorage.getItem('users')) {
+                const defaultData = [ new Admin(Date.now(), 'admin', 'admin123') ];
+                localStorage.setItem('users', JSON.stringify(defaultData));
+            }
+            this.cekSesi();
+        },
+
+        // --- MANAJEMEN DATABASE (LOCALSTORAGE) ---
+        getUsers() {
+            const data = JSON.parse(localStorage.getItem('users')) || [];
+            // Konversi plain object kembali menjadi Instance Class (Admin/Member)
+            return data.map(u => UserFactory.buatObjek(u));
+        },
+
+        simpanUsers(users) {
+            localStorage.setItem('users', JSON.stringify(users));
+        },
+
+        // --- SISTEM AUTENTIKASI ---
+        login(e) {
+            e.preventDefault();
+            const usr = document.getElementById('login-username').value;
+            const pass = document.getElementById('login-password').value;
+            
+            const users = this.getUsers();
+            const foundUser = users.find(u => u.username === usr && u.password === pass);
+
+            if (foundUser) {
+                localStorage.setItem('activeSession', JSON.stringify(foundUser));
+                this.cekSesi();
+                this.tampilAlert('Login berhasil!', 'sukses');
+            } else {
+                alert('Username atau password salah!');
+            }
+        },
+
+        logout() {
+            localStorage.removeItem('activeSession');
+            this.activeUser = null;
+            this.showPage('login-page');
+            document.getElementById('navbar').style.display = 'none';
+        },
+
+        cekSesi() {
+            const session = localStorage.getItem('activeSession');
+            if (session) {
+                const rawUser = JSON.parse(session);
+                // Rekonstruksi objek agar method OOP (tampilkanSapaan) bisa digunakan
+                this.activeUser = UserFactory.buatObjek(rawUser); 
+                
+                document.getElementById('navbar').style.display = 'flex';
+                this.showPage('crud-page');
+                this.renderTable();
+                this.renderProfile();
+            } else {
+                this.showPage('login-page');
+            }
+        },
+
+        // --- FUNGSI CRUD ---
+        saveUser(e) {
+            e.preventDefault();
+            const id = document.getElementById('user-id').value;
+            const username = document.getElementById('user-username').value;
+            const password = document.getElementById('user-password').value;
+            const role = document.getElementById('user-role').value;
+
+            let users = this.getUsers();
+
+            if (id) {
+                // UPDATE
+                const index = users.findIndex(u => u.id == id);
+                if(index !== -1) {
+                    users[index] = UserFactory.buatObjek({id: id, username, password, role});
+                    this.tampilAlert('Data berhasil diupdate');
+                }
+            } else {
+                // CREATE
+                const newUser = UserFactory.buatObjek({id: Date.now(), username, password, role});
+                users.push(newUser);
+                this.tampilAlert('Data berhasil ditambahkan');
+            }
+
+            this.simpanUsers(users);
+            this.resetForm();
+            this.renderTable();
+        },
+
+        editUser(id) {
+            const users = this.getUsers();
+            const user = users.find(u => u.id == id);
+            if (user) {
+                document.getElementById('user-id').value = user.id;
+                document.getElementById('user-username').value = user.username;
+                document.getElementById('user-password').value = user.password;
+                document.getElementById('user-role').value = user.role;
+                
+                document.getElementById('btn-save').textContent = 'Update Data';
+                document.getElementById('btn-cancel').style.display = 'inline-block';
+            }
+        },
+
+        hapusUser(id) {
+            if (confirm('Yakin ingin menghapus user ini?')) {
+                let users = this.getUsers();
+                users = users.filter(u => u.id != id);
+                this.simpanUsers(users);
+                this.renderTable();
+                this.tampilAlert('Data berhasil dihapus');
+            }
+        },
+
+        // --- UI RENDER & NAVIGASI ---
+        renderTable() {
+            const tbody = document.getElementById('user-table-body');
+            tbody.innerHTML = '';
+            
+            const users = this.getUsers();
+            users.forEach(user => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${user.username}</td>
+                        <td>${user.role}</td>
+                        <td>
+                            <button class="btn warning" onclick="App.editUser(${user.id})">Edit</button>
+                            <button class="btn danger" onclick="App.hapusUser(${user.id})">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        },
+
+        renderProfile() {
+            if (!this.activeUser) return;
+            const profileBox = document.getElementById('profile-content');
+            
+            // IMPLEMENTASI POLIMORFISME: 
+            // Tampilan akan berbeda secara otomatis tergantung apakah instans ini Admin atau Member
+            profileBox.innerHTML = `
+                ${this.activeUser.tampilkanSapaan()}
+                <hr style="margin:20px 0; border:1px solid #e5e7eb;">
+                <p><b>Informasi Teknis (Encapsulation Base Class):</b></p>
+                <code>${this.activeUser.getDetailInfo()}</code>
+            `;
+        },
+
+        resetForm() {
+            document.getElementById('user-id').value = '';
+            document.getElementById('user-username').value = '';
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-role').value = 'Admin';
+            document.getElementById('btn-save').textContent = 'Simpan Data';
+            document.getElementById('btn-cancel').style.display = 'none';
+        },
+
+        showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        },
+
+        tampilAlert(msg) {
+            const box = document.getElementById('alert-box');
+            box.textContent = msg;
+            box.style.display = 'block';
+            setTimeout(() => { box.style.display = 'none'; }, 3000);
+        }
+    };
+
+    // Jalankan aplikasi saat halaman dimuat
+    window.onload = () => App.init();
+
+</script>
+</body>
+</html>
